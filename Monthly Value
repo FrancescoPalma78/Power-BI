@@ -1,0 +1,24 @@
+SUM_GDWPINF_ACT_CY_MV = 
+VAR AktuellesDatum = MAX(dim_DATE_TABLE[PK_Date_D])
+VAR YTDWert = 
+    CALCULATE([SUM_GDWPINF_ACT_CY_YTD],
+    'DBIM_GDWPNBINF_ACT'[KPI] = "GDWP INF"
+)
+
+VAR Vormonatswert = 
+    CALCULATE(
+        [SUM_GDWPINF_ACT_CY_YTD],
+        DATEADD(dim_DATE_TABLE[PK_Date_D], -1, MONTH),
+        'DBIM_GDWPNBINF_ACT'[KPI] = "GDWP INF"
+    )
+RETURN
+IF(
+    ISBLANK(YTDWert),
+    BLANK(),
+    IF(
+        MONTH(AktuellesDatum) = 1,
+        YTDWert,
+        YTDWert - Vormonatswert
+    )
+)
+
