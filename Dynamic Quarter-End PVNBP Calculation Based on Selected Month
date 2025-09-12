@@ -1,0 +1,49 @@
+// Measure: SUM_Example_ACT_YTD Qview
+// Description:
+// This measure calculates the Example value for the last available month in the quarter,
+// based on the month selected in the date slicer.
+// The logic is as follows:
+// - Months 1–3 → return December of the previous year
+// - Months 4–6 → return March of the current year
+// - Months 7–9 → return June of the current year
+// - Months 10–12 → return September of the current year
+
+SUM_Example_ACT_YTD Qview =
+VAR SelectedMonth = MAX(dim_DATE_TABLE[Month])
+VAR SelectedYear = MAX(dim_DATE_TABLE[Year])
+
+// Determine the target month based on the selected month
+
+VAR TargetMonth =
+    SWITCH(
+        TRUE(),
+        SelectedMonth IN {1, 2, 3}, 12,
+        SelectedMonth IN {4, 5, 6}, 3,
+        SelectedMonth IN {7, 8, 9}, 6,
+        SelectedMonth IN {10, 11, 12}, 9
+    )
+
+// Determine the target year (previous year for Q1, otherwise current year)
+
+VAR TargetYear =
+    SWITCH(
+        TRUE(),
+        SelectedMonth IN {1, 2, 3}, SelectedYear - 1,
+        TRUE(), SelectedYear
+    )
+
+// Final calculation with filters on month, year, and KPI
+
+RETURN
+CALCULATE(
+    SUM(DBIM_Example_ACT[Wert Mio. YTD]),
+    DBIM_NBM_ACT[Example_KPI_Akro_desc] = "PVNBP",
+    YEAR(DBIM_Example_ACT[Datum_DD_MM]) = TargetYear,
+    MONTH(DBIM_Example_ACT[Datum_DD_MM]) = TargetMonth,
+
+    // Removes the filter context from the date table applied by the slicer.
+    // Why is this important?
+    // → The slicer might filter for January, but the data table only contains values for March, June, September, and December.
+    // → Without REMOVEFILTERS, the data table would be empty, and the calculation would return BLANK.
+    // → With REMOVEFILTERS, the full data table is considered, and the manual filtering via TargetMonth/TargetYear works correctly.
+    REMOVEFILTERS(dim_DATE_TABLE)
