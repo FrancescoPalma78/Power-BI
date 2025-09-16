@@ -1,0 +1,79 @@
+SUM_PVNBP_ACT_MV Qview = 
+VAR SelectedMonth = MAX(dim_DATE_TABLE[Month])
+VAR SelectedYear = MAX(dim_DATE_TABLE[Year])
+
+// Aktueller Quartalswert
+VAR AktuellerTargetMonth =
+    SWITCH(
+        TRUE(),
+        SelectedMonth IN {1, 2, 3}, 12,
+        SelectedMonth IN {4, 5, 6}, 3,
+        SelectedMonth IN {7, 8, 9}, 6,
+        SelectedMonth IN {10, 11, 12}, 9
+    )
+
+VAR AktuellerTargetYear =
+    SWITCH(
+        TRUE(),
+        SelectedMonth IN {1, 2, 3}, SelectedYear - 1,
+        TRUE(), SelectedYear
+    )
+
+VAR AktuellerWert =
+    CALCULATE(
+        SUM(DBIM_NBM_ACT[Wert Mio. YTD]),
+        DBIM_NBM_ACT[NBM_KPI_Akro_desc] = "PVNBP",
+        YEAR(DBIM_NBM_ACT[Datum_DD_MM]) = AktuellerTargetYear,
+        MONTH(DBIM_NBM_ACT[Datum_DD_MM]) = AktuellerTargetMonth,
+        REMOVEFILTERS(dim_DATE_TABLE)
+    )
+
+// Vergleichsmonat berechnen (3 Monate zurück)
+VAR VergleichsDatum =
+    CALCULATETABLE(
+        VALUES(dim_DATE_TABLE),
+        DATEADD(dim_DATE_TABLE[PK_Date_D], -3, MONTH)
+    )
+
+VAR VergleichsMonth = MAXX(VergleichsDatum, dim_DATE_TABLE[Month])
+VAR VergleichsYear = MAXX(VergleichsDatum, dim_DATE_TABLE[Year])
+
+VAR VergleichsTargetMonth =
+    SWITCH(
+        TRUE(),
+        VergleichsMonth IN {1, 2, 3}, 12,
+        VergleichsMonth IN {4, 5, 6}, 3,
+        VergleichsMonth IN {7, 8, 9}, 6,
+        VergleichsMonth IN {10, 11, 12}, 9
+    )
+
+VAR VergleichsTargetYear =
+    SWITCH(
+        TRUE(),
+        VergleichsMonth IN {1, 2, 3}, VergleichsYear - 1,
+        TRUE(), VergleichsYear
+    )
+
+VAR VergleichsWert =
+    CALCULATE(
+        SUM(DBIM_NBM_ACT[Wert Mio. YTD]),
+        DBIM_NBM_ACT[NBM_KPI_Akro_desc] = "PVNBP",
+        YEAR(DBIM_NBM_ACT[Datum_DD_MM]) = VergleichsTargetYear,
+        MONTH(DBIM_NBM_ACT[Datum_DD_MM]) = VergleichsTargetMonth,
+        REMOVEFILTERS(dim_DATE_TABLE)
+    )
+
+RETURN
+IF(
+    SelectedMonth IN {1, 2, 3, 4, 5, 6},
+    "n.v.",
+    IF(
+        ISBLANK(AktuellerWert),
+        BLANK(),
+        IF(
+            AktuellerTargetYear = VergleichsTargetYear,
+            AktuellerWert - VergleichsWert,
+            AktuellerWert
+        )
+    )
+)
